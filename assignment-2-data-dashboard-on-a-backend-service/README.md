@@ -8,8 +8,6 @@ In Progress / Done), and a Dashboard page charts the data.
 
 Three docs cover different angles of this project:
 - **This README** — what it is, how the schema/auth/security work, and setup from zero.
-- [**CLAUDE.md**](./CLAUDE.md) — the design spec: backend choice and why, full schema, the
-  security model, and the assignment checklist this project is scoped against.
 - [**BUILD_LOG.md**](./BUILD_LOG.md) — the process journal: decisions and trade-offs made while
   building, hard parts, how correctness was verified, and known limitations.
 
