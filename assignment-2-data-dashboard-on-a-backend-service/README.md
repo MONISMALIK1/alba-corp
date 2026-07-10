@@ -1,5 +1,7 @@
 # Data Dashboard on a Backend Service — TaskBoard
 
+**Live**: https://alba-corp-production.up.railway.app (demo credentials below)
+
 Assignment 2 in [alba-corp](../README.md). A small project/task board (Trello/Linear-lite) built
 on Supabase. Users create **Projects**, each Project holds **Tasks** on a kanban board (To Do /
 In Progress / Done), and a Dashboard page charts the data.

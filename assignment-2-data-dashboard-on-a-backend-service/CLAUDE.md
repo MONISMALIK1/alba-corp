@@ -132,15 +132,17 @@ taskboard-supabase/
 
 ## Deliverables checklist (map to assignment)
 
-- [ ] Live URL (Vercel)
-- [ ] Source repo with README.md (setup from zero + demo credentials)
-- [ ] `BUILD_LOG.md` (goal/scope, stack, decisions & trade-offs, hard parts, how verified,
+- [x] Live URL (Railway): https://alba-corp-production.up.railway.app
+- [x] Source repo with README.md (setup from zero + demo credentials):
+      https://github.com/MONISMALIK1/alba-corp
+- [x] `BUILD_LOG.md` (goal/scope, stack, decisions & trade-offs, hard parts, how verified,
       known limitations, time spent)
-- [ ] Backend choice + why (this file)
-- [ ] Full schema (this file + `supabase/migrations/0001_init.sql`)
-- [ ] Services used (Auth, Database/Postgres, Realtime)
-- [ ] Advanced feature verification, especially the RLS boundary test
-- [ ] Seed script / demo credentials for a reviewer to log in without setup
+- [x] Backend choice + why (this file)
+- [x] Full schema (this file + `supabase/migrations/0001_init.sql`)
+- [x] Services used (Auth, Database/Postgres, Realtime)
+- [x] Advanced feature verification, especially the RLS boundary test — verified both locally
+      and against the live Railway deployment
+- [x] Seed script / demo credentials for a reviewer to log in without setup
 
 ## Conventions
 
