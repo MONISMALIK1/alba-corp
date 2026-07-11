@@ -81,4 +81,4 @@ fallback.
   ~30 min
 - Live debugging in n8n Cloud (dedupe schema fix, disk-write removal, Gmail → SendGrid credential
   pivot): ~45 min
-- Docs (CLAUDE.md, README.md, this file): ~25 min
+- Docs ( README.md, this file): ~25 min
