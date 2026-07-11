@@ -3,7 +3,7 @@
 Assignment 1 in [alba-corp](../README.md). A movie discovery app whose detail page blends two
 data sources neither gives you alone: TMDB's movie metadata (cast, trailer, where to stream it)
 and Deezer's soundtrack search — with a shared-element poster transition connecting the grid to
-the detail view. See [CLAUDE.md] for the full design spec and
+the detail view. See  for the full design spec and
 [BUILD_LOG.md](./BUILD_LOG.md) for the process journal.
 
 ## What this assignment asked for
