@@ -87,7 +87,7 @@ and no list virtualization yet.
 - Scaffold + server-only lib layer (TMDB/Deezer clients, backoff, types, zod schemas): ~45 min
 - BFF route handlers: ~15 min
 - Grid + debounced URL-synced search + infinite scroll: ~40 min
-- Detail page + intercepted-route modal + FLIP transition wiring: ~50 min
+- Detail page + intercepted-route modal + FLIP transition wiring: ~30 min
 - Polish (next/image conversion, loading/error/not-found states, typography): ~30 min
-- Browser verification + found/fixed the infinite-scroll race condition: ~35 min
-- Docs (CLAUDE.md, README.md, this file): ~30 min
+- Browser verification + found/fixed the infinite-scroll race condition: ~30 min
+
