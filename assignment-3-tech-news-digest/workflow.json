@@ -1,0 +1,409 @@
+{
+  "name": "Tech News Digest (OpenRouter)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "a1e11111-1111-4111-8111-111111111101",
+      "name": "Daily 8am Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1440, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-send-email",
+              "name": "sendEmailEnabled",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111116",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1300, 0],
+      "notes": "Single on/off switch. sendEmailEnabled: false (default) = the CSV is produced and downloadable from this run's execution output only. Flip to true to also get it emailed with the CSV attached."
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/feed/",
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111102",
+      "name": "RSS - TechCrunch",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-1120, -160],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111103",
+      "name": "RSS - The Verge",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-1120, 0],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://hnrss.org/frontpage",
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111104",
+      "name": "RSS - Hacker News",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [-1120, 160],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge is implicit: all three RSS nodes feed this single input.\n// Normalize fields and compute a simple keyword relevance score.\nconst KEYWORDS = [\"ai\", \"artificial intelligence\", \"openai\", \"llm\", \"startup\", \"chip\", \"robotics\", \"machine learning\"];\n\nconst input = $input.all();\n\nfunction stripHtml(html) {\n  return String(html || \"\").replace(/<[^>]*>/g, \"\").trim();\n}\n\nreturn input.map((item) => {\n  const title = item.json.title || \"\";\n  const rawSummary = item.json.contentSnippet || item.json.content || item.json.summary || \"\";\n  const summary = stripHtml(rawSummary).slice(0, 500);\n  const text = (title + \" \" + summary).toLowerCase();\n  const relevanceScore = KEYWORDS.reduce((acc, kw) => acc + (text.includes(kw) ? 1 : 0), 0);\n\n  return {\n    json: {\n      title,\n      link: item.json.link || item.json.guid || \"\",\n      summary,\n      pubDate: item.json.pubDate || item.json.isoDate || \"\",\n      relevanceScore\n    }\n  };\n});"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111105",
+      "name": "Score & Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-880, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-relevance",
+              "leftValue": "={{ $json.relevanceScore }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111106",
+      "name": "Is Relevant?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-640, 0]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "compare": "selectedFields",
+        "fieldsToCompare": "link",
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111107",
+      "name": "Dedupe (Seen Before?)",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1.1,
+      "position": [-400, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds a single LLM prompt out of every surviving article.\n// If there are zero items (nothing new/relevant), this returns [] and\n// every downstream node (LLM call, CSV write, email) simply does not run.\nconst items = $input.all();\nif (items.length === 0) {\n  return [];\n}\n\nconst list = items\n  .map((i) => `- ${i.json.title}\\n  Link: ${i.json.link}\\n  ${i.json.summary}`)\n  .join(\"\\n\\n\");\n\nconst prompt = `You are a concise tech news editor. Summarize the following articles into a short daily digest (under 200 words). Group related articles by theme where it makes sense, and give a one-line takeaway per story. Keep it skimmable.\\n\\nArticles:\\n${list}`;\n\nreturn [\n  {\n    json: {\n      prompt,\n      articleCount: items.length,\n      articles: items.map((i) => i.json)\n    }\n  }\n];"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111108",
+      "name": "Build Digest Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"openai/gpt-4o-mini\", messages: [ { role: \"user\", content: $json.prompt } ] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1e11111-1111-4111-8111-111111111109",
+      "name": "OpenRouter - Summarize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [80, -80],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_CREDENTIAL_ID",
+          "name": "OpenRouter Header Auth"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst digest = response.choices?.[0]?.message?.content || \"No digest generated.\";\nreturn [{ json: { digest } }];"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111110",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const digest = $json.digest;\nconst today = new Date().toISOString().slice(0, 10);\nconst html = `<h2>Daily Tech Digest — ${today}</h2><p>${digest.replace(/\\n/g, \"<br>\")}</p>`;\nreturn [{ json: { subject: `Daily Tech Digest — ${today}`, html } }];"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111111",
+      "name": "Format Digest Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds a CSV of every article that made it into today's digest.\n// Pulls the article list back from Build Digest Prompt via a direct node\n// reference, since it isn't on this branch's item chain otherwise.\nconst articles = $('Build Digest Prompt').item.json.articles || [];\n\nfunction csvEscape(value) {\n  const s = String(value ?? \"\");\n  return /[\",\\n]/.test(s) ? `\"${s.replace(/\"/g, '\"\"')}\"` : s;\n}\n\nconst header = [\"title\", \"link\", \"summary\", \"pubDate\", \"relevanceScore\"];\nconst rows = articles.map((a) => header.map((key) => csvEscape(a[key])).join(\",\"));\nconst csv = [header.join(\",\"), ...rows].join(\"\\n\");\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  Buffer.from(csv, \"utf-8\"),\n  \"digest-articles.csv\",\n  \"text/csv\"\n);\n\nreturn [\n  {\n    json: { subject: $json.subject, html: $json.html },\n    binary: { attachment: binaryData }\n  }\n];"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111115",
+      "name": "Build CSV File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, -160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-email-enabled",
+              "leftValue": "={{ $('Config').item.json.sendEmailEnabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111118",
+      "name": "Email Enabled? (Digest)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1280, -160]
+    },
+    {
+      "parameters": {
+        "fromEmail": "digest@example.com",
+        "toEmail": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {
+          "attachments": "attachment"
+        }
+      },
+      "id": "a1e11111-1111-4111-8111-111111111112",
+      "name": "Send Digest Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1520, -160],
+      "credentials": {
+        "smtp": {
+          "id": "PLACEHOLDER_SMTP_CREDENTIAL_ID",
+          "name": "SMTP Credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json;\nconst message = err.error?.message || err.message || \"Unknown error calling OpenRouter.\";\nconst today = new Date().toISOString().slice(0, 10);\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  Buffer.from(`Tech News Digest failed on ${today}\\n\\n${message}`, \"utf-8\"),\n  \"digest-failure.txt\",\n  \"text/plain\"\n);\n\nreturn [\n  {\n    json: {\n      subject: \"Tech News Digest FAILED\",\n      html: `<p><strong>Today's digest could not be generated.</strong></p><p>${message}</p>`\n    },\n    binary: { attachment: binaryData }\n  }\n];"
+      },
+      "id": "a1e11111-1111-4111-8111-111111111113",
+      "name": "Format Failure Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 80]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-email-enabled-failure",
+              "leftValue": "={{ $('Config').item.json.sendEmailEnabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111120",
+      "name": "Email Enabled? (Failure)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [800, 80]
+    },
+    {
+      "parameters": {
+        "fromEmail": "digest@example.com",
+        "toEmail": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "a1e11111-1111-4111-8111-111111111114",
+      "name": "Send Failure Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1040, 80],
+      "credentials": {
+        "smtp": {
+          "id": "PLACEHOLDER_SMTP_CREDENTIAL_ID",
+          "name": "SMTP Credential"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 8am Trigger": {
+      "main": [
+        [{ "node": "Config", "type": "main", "index": 0 }]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          { "node": "RSS - TechCrunch", "type": "main", "index": 0 },
+          { "node": "RSS - The Verge", "type": "main", "index": 0 },
+          { "node": "RSS - Hacker News", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "RSS - TechCrunch": {
+      "main": [
+        [{ "node": "Score & Normalize", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS - The Verge": {
+      "main": [
+        [{ "node": "Score & Normalize", "type": "main", "index": 0 }]
+      ]
+    },
+    "RSS - Hacker News": {
+      "main": [
+        [{ "node": "Score & Normalize", "type": "main", "index": 0 }]
+      ]
+    },
+    "Score & Normalize": {
+      "main": [
+        [{ "node": "Is Relevant?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Relevant?": {
+      "main": [
+        [{ "node": "Dedupe (Seen Before?)", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Dedupe (Seen Before?)": {
+      "main": [
+        [{ "node": "Build Digest Prompt", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Digest Prompt": {
+      "main": [
+        [{ "node": "OpenRouter - Summarize", "type": "main", "index": 0 }]
+      ]
+    },
+    "OpenRouter - Summarize": {
+      "main": [
+        [{ "node": "Parse LLM Response", "type": "main", "index": 0 }],
+        [{ "node": "Format Failure Content", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [{ "node": "Format Digest Content", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Digest Content": {
+      "main": [
+        [{ "node": "Build CSV File", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build CSV File": {
+      "main": [
+        [{ "node": "Email Enabled? (Digest)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Enabled? (Digest)": {
+      "main": [
+        [{ "node": "Send Digest Email", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Format Failure Content": {
+      "main": [
+        [{ "node": "Email Enabled? (Failure)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Enabled? (Failure)": {
+      "main": [
+        [{ "node": "Send Failure Email", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
