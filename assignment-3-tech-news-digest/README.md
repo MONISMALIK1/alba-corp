@@ -9,8 +9,6 @@ way (and emailed too, if the option is on).
 
 Three docs cover different angles of this project:
 - **This README** — what it is, node-by-node, setup/credentials, how to run it, how to verify it.
-- [**CLAUDE.md**](./CLAUDE.md) — the design rationale (why n8n, why this idea, key trade-offs) and
-  the assignment checklist this project is scoped against.
 - [**BUILD_LOG.md**](./BUILD_LOG.md) — the process journal: decisions made while building, hard
   parts (including two real bugs caught by actually running this live), and known limitations.
 
