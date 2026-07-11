@@ -64,6 +64,14 @@ for validating upstream API responses before trusting their shape.
   current generation — so even a genuinely late-resolving fetch can no longer clobber newer state.
   Also tightened the observer's `rootMargin` from 600px to 200px, since 600px was eagerly
   triggering 3-4 pages of pagination on initial mount before the user ever scrolled.
+- **Second bug found post-deploy**: verifying the live Vercel deployment, `audio.play()` in the
+  soundtrack panel is a promise that can reject (autoplay blocked, network hiccup, preview URL
+  expired) — and the code called `setPlayingId(track.id)` unconditionally right after calling it,
+  without awaiting or catching. On a rejection, the UI would flip to showing the pause icon for a
+  track that was never actually playing. Fixed by moving `setPlayingId` before `.play()` (so the
+  UI responds instantly on the success path) and adding a `.catch()` that reverts `playingId` back
+  to `null` — but only if it's still pointing at that same track, so a rejection from a stale
+  play() call can't stomp on a track the user has since switched to.
 
 ## How I verified it works
 See README.md "04 — How I tested this" for the full list — manual pass through search, grid

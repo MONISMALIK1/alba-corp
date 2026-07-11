@@ -59,8 +59,12 @@ export function SoundtrackPanel({
       return;
     }
     audioRef.current.src = track.previewUrl;
-    audioRef.current.play();
     setPlayingId(track.id);
+    audioRef.current.play().catch(() => {
+      // Autoplay blocked or preview failed to load — don't leave the UI
+      // showing "playing" for audio that never actually started.
+      setPlayingId((current) => (current === track.id ? null : current));
+    });
   }
 
   return (
