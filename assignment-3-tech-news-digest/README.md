@@ -111,8 +111,12 @@ No Slack, no Google Sheets, no OAuth flows, no filesystem access needed.
 
 ### Sample successful run
 
-*(Add a screenshot of the `Build CSV File` node's output panel — showing the downloadable CSV —
-here after your first real run, e.g. `docs/sample-run.png`.)*
+![A full successful execution of the Tech News Digest workflow, every node green: 3 RSS feeds (50 items) → Score & Normalize → Is Relevant? (24 pass) → Dedupe (3 new) → Build Digest Prompt → OpenRouter - Summarize → Parse LLM Response → Format Digest Content → Build CSV File → Email Enabled? (Digest) → Send Digest Email (6 items). The failure branch (Format Failure Content → Email Enabled? (Failure) → Send Failure Email) sits idle below, unused because this run succeeded.](./docs/sample-run.png)
+
+A real end-to-end run: 50 articles came in across the three feeds, 24 passed the relevance filter,
+3 were new (not seen in a previous run), and those 3 became one digest — summarized, turned into a
+CSV, and emailed (`sendEmailEnabled` was `true` for this run). The failure branch along the bottom
+stayed idle, as expected on a successful run.
 
 ## Known limitations
 
